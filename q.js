@@ -46,6 +46,19 @@ Element.prototype.addClass = function(name) {
 		/(^\s|\s{2,}|\s$)/g, "");
 }
 
+// Append elements or HTML strings
+Element.prototype.append = function(node) {
+	if (typeof node === 'string') { // HTML string
+		var frag = document.createElement("div");
+		frag.innerHTML = node;
+		for (var x = 0, y = frag.children.length; x < y; ++ x) {
+			this.appendChild(frag.children[x]);
+		}
+	} else { // Element(s)
+		this.appendChild(node);
+	}
+}
+
 // Provide a shorter alias for a built-in function
 Document.prototype.q = function() {
 	var result = Document.prototype.querySelectorAll.apply(this, arguments);
