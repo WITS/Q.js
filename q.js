@@ -35,7 +35,7 @@ Element.prototype.hasClass = function(name) {
 // Removes class (name)
 Element.prototype.removeClass = function(name) {
 	this.className = this.className.replace(new RegExp(
-		"(^|\\s)" + name + "(\\s|$)", "g"), "$1$2").replace(
+		"(^|\\s)" + name + "(\\s|$)", "g"), " ").replace(
 		/(^\s|\s{2,}|\s$)/g, "");
 }
 
@@ -44,6 +44,20 @@ Element.prototype.addClass = function(name) {
 	if (this.hasClass(name)) return;
 	this.className = (this.className + " " + name).replace(
 		/(^\s|\s{2,}|\s$)/g, "");
+}
+
+// Toggle class (name)
+Element.prototype.toggleClass = function(name) {
+	if (this.hasClass(name)) {
+		this.className = this.className.replace(new RegExp(
+			"(^|\\s)" + name + "(\\s|$)", "g"), " ").replace(
+			/(^\s|\s{2,}|\s$)/g, "");
+		return false;
+	} else {
+		this.className = (this.className + " " + name).replace(
+			/(^\s|\s{2,}|\s$)/g, "");
+		return true;
+	}
 }
 
 // Append elements or HTML strings
@@ -59,11 +73,61 @@ Element.prototype.append = function(node) {
 	}
 }
 
+// Append plaintext strings (sanitizes automatically)
+Element.prototype.appendText = function(text) {
+	this.appendChild(document.createTextNode(text));
+}
+
 // Provide a shorter alias for a built-in function
 Document.prototype.q = function() {
 	var result = Document.prototype.querySelectorAll.apply(this, arguments);
 	if (result.length === 1) return result[0];
 	return result;
+}
+DocumentFragment.prototype.q = function() {
+	var result = DocumentFragment.prototype.querySelectorAll.apply(this, arguments);
+	if (result.length === 1) return result[0];
+	return result;
+}
+Element.prototype.q = function() {
+	var result = Element.prototype.querySelectorAll.apply(this, arguments);
+	if (result.length === 1) return result[0];
+	return result;
+}
+// Make it so that checking the length of .q will always work
+Element.prototype.length = 1;
+
+// Make it possible to query a list of elements
+HTMLCollection.prototype.q =
+NodeList.prototype.q = function() {
+	var result = new Array();
+	for (var i = this.length; i --; ) {
+		var i_result = this[i].querySelectorAll.apply(this[i], arguments);
+		for (var x = 0, y = i_result.length; x < y; ++ x) {
+			result.push(i_result[x]);
+		}
+	}
+	if (result == 1) return result[0];
+	result.q = this.q;
+	result.do = this.do;
+	return result;
+	// var fragment = document.createDocumentFragment();
+	// var start_parent = new Array();
+	// var start_sibling = new Array();
+	// for (var x = 0, y = this.length; x < y; ++ x) {
+	// 	start_parent[x] = this[x].parentElement;
+	// 	start_sibling[x] = this[x].nextElementSibling;
+	// 	fragment.appendChild(this[x]);
+	// }
+	// var result = fragment.q.apply(fragment, arguments);
+	// for (var i = this.length; i --; ) {
+	// 	if (start_sibling) {
+	// 		start_parent[i].insertBefore(this[i], start_sibling[i]);
+	// 	} else {
+	// 		start_parent[i].appendChild(this[i]);
+	// 	}
+	// }
+	// return result;
 }
 
 // Makes it easy to perform an action on one or more elements
@@ -80,4 +144,87 @@ NodeList.prototype.do = function(method) {
 	for (var i = this.length; i --; ) {
 		this[i].do.apply(this[i], arguments);
 	}
+}
+
+// Make it easy to scroll an element into view (polyfill + simplicity)
+Element.prototype.scrollTo = function(x, y) {
+	// (x, y)
+	if (y != null && typeof x === 'number') {
+		this.scrollLeft = x;
+		this.scrollTop = y;
+		return;
+	}
+	// (y)
+	if (typeof x === 'number') {
+		this.scrollTop = x;
+		return;
+	}
+	// (Element)
+	if (x instanceof Element) {
+		var t_rect = this.getBoundingClientRect();
+		var x_rect = x.getBoundingClientRect();
+		if (x_rect.top > t_rect.top + t_rect.height - x_rect.height) {
+			this.scrollTop += x_rect.bottom - t_rect.bottom;
+		} else if (x_rect.top < t_rect.top) {
+			this.scrollTop += x_rect.top - t_rect.top;
+		}
+	}
+}
+
+function EventListenerInfo(arg) {
+	this.type = arg[0];
+	this.func = arg[1];
+	this.capture = arg[2] || false;
+}
+
+Element.prototype._addEventListener =
+	Element.prototype.addEventListener;
+
+Element.prototype.addEventListener = function(type,
+	func, capture) {
+	// If events hasn't been initialized, initialize it
+	if (!this.events) this.events = new Array();
+	// Store the event listener so it can be
+	// removed later
+	this.events.push(new EventListenerInfo(arguments));
+	// Call the client's native method
+	this._addEventListener(type, func, capture);
+}
+
+Element.prototype.unbindEventListeners = function(type) {
+	if (!this.events) return;
+	var type = type || "";
+	var i = this.events.length;
+	while (i --) {
+		var e = this.events[i];
+		if (type != "" && type != e.type) continue;
+		this.removeEventListener(e.type,
+			e.func, e.capture);
+		this.events.splice(i, 1);
+	}
+}
+
+Element.prototype.empty = function() { // Removes all children
+	while (this.firstChild) {
+		if (this.firstChild instanceof Element) {
+			// Remove child's children
+			this.firstChild.empty();
+			// Remove events
+			this.firstChild.unbindEventListeners();
+		}
+		// Remove child node
+		this.removeChild(this.firstChild);
+	}
+}
+
+Element.prototype.remove = function() {
+	this.unbindEventListeners();
+	if (this.parentElement != null) {
+		this.parentElement.removeChild(this);
+	}
+}
+
+Element.prototype.getStyle = function(name) {
+	return this.currentStyle ? this.currentStyle[name] :
+     getComputedStyle(this, null)[name];
 }
