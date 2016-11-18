@@ -14,7 +14,7 @@ var el = document.body;
 el.addClass("foo");
 ```
 
-There are several classes that can be used to modify classes
+There are several methods that can be used to modify classes
 
 ### addClass(String name)
 Adds class `name` to the element its called on.
@@ -44,7 +44,7 @@ console.log("True, if el currently has class foo: %s", el.toggleClass("foo"));
 
 All elements, as well as documents and document fragments can be queried for elements.
 
-> The result of the query will always be one of two things: an HTMLCollection or an Element. The result will be an Element if and only if the result has length 1. If you're unsure what the length of your query will be, just use `.do()` to perform actions on all of the results.
+> The result of the query will always be one of two things: an HTMLCollection or an Element. The result will be an Element if and only if the result has length 1. If you're unsure what the length of the result will be, just use `do` to perform actions on all of the results.
 
 ### q(String query)
 Call the `q` method on any DOM node in order to query its contents with a CSS selector `query`.
