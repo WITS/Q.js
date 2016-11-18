@@ -111,23 +111,6 @@ NodeList.prototype.q = function() {
 	result.q = this.q;
 	result.do = this.do;
 	return result;
-	// var fragment = document.createDocumentFragment();
-	// var start_parent = new Array();
-	// var start_sibling = new Array();
-	// for (var x = 0, y = this.length; x < y; ++ x) {
-	// 	start_parent[x] = this[x].parentElement;
-	// 	start_sibling[x] = this[x].nextElementSibling;
-	// 	fragment.appendChild(this[x]);
-	// }
-	// var result = fragment.q.apply(fragment, arguments);
-	// for (var i = this.length; i --; ) {
-	// 	if (start_sibling) {
-	// 		start_parent[i].insertBefore(this[i], start_sibling[i]);
-	// 	} else {
-	// 		start_parent[i].appendChild(this[i]);
-	// 	}
-	// }
-	// return result;
 }
 
 // Makes it easy to perform an action on one or more elements
