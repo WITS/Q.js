@@ -3,7 +3,7 @@ Q.js - a tiny jQuery-inspired library
 
 The MIT License (MIT)
 
-Copyright (c) 2016 Ian Jones
+Copyright (c) 2016 - 2017 Ian Jones
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,36 +27,61 @@ SOFTWARE.
 
 // Add some useful methods to all Elements
 
-// Returns true if this element has class (name)
-Element.prototype.hasClass = function(name) {
-	return new RegExp("(?:^|\\s)" + name + "(?:\\s|$)").test(this.className);
-}
+/// If this browser has basic classList support
+if (document.documentElement.classList &&
+	document.documentElement.classList.add) {
 
-// Removes class (name)
-Element.prototype.removeClass = function(name) {
-	this.className = this.className.replace(new RegExp(
-		"(^|\\s)" + name + "(\\s|$)", "g"), " ").replace(
-		/(^\s|\s{2,}|\s$)/g, "");
-}
+	// Returns true if this element has class (name)
+	Element.prototype.hasClass = function(name) {
+		return this.classList.contains(name);
+	}
 
-// Adds class (name)
-Element.prototype.addClass = function(name) {
-	if (this.hasClass(name)) return;
-	this.className = (this.className + " " + name).replace(
-		/(^\s|\s{2,}|\s$)/g, "");
-}
+	// Removes class (name)
+	Element.prototype.removeClass = function(name) {
+		this.classList.remove(name);
+	}
 
-// Toggle class (name)
-Element.prototype.toggleClass = function(name) {
-	if (this.hasClass(name)) {
+	// Adds class (name)
+	Element.prototype.addClass = function(name) {
+		this.classList.add(name);
+	}
+
+	// Toggle class (name)
+	Element.prototype.toggleClass = function(name) {
+		return this.classList.toggle(name);
+	}
+} else {
+	// Returns true if this element has class (name)
+	Element.prototype.hasClass = function(name) {
+		return new RegExp("(?:^|\\s)" + name + "(?:\\s|$)").test(this.className);
+	}
+
+	// Removes class (name)
+	Element.prototype.removeClass = function(name) {
 		this.className = this.className.replace(new RegExp(
 			"(^|\\s)" + name + "(\\s|$)", "g"), " ").replace(
 			/(^\s|\s{2,}|\s$)/g, "");
-		return false;
-	} else {
+	}
+
+	// Adds class (name)
+	Element.prototype.addClass = function(name) {
+		if (this.hasClass(name)) return;
 		this.className = (this.className + " " + name).replace(
 			/(^\s|\s{2,}|\s$)/g, "");
-		return true;
+	}
+
+	// Toggle class (name)
+	Element.prototype.toggleClass = function(name) {
+		if (this.hasClass(name)) {
+			this.className = this.className.replace(new RegExp(
+				"(^|\\s)" + name + "(\\s|$)", "g"), " ").replace(
+				/(^\s|\s{2,}|\s$)/g, "");
+			return false;
+		} else {
+			this.className = (this.className + " " + name).replace(
+				/(^\s|\s{2,}|\s$)/g, "");
+			return true;
+		}
 	}
 }
 
@@ -78,19 +103,65 @@ Element.prototype.appendText = function(text) {
 	this.appendChild(document.createTextNode(text));
 }
 
-// Provide a shorter alias for a built-in function
-Document.prototype.q = function() {
-	var result = Document.prototype.querySelectorAll.apply(this, arguments);
-	if (result.length === 1) return result[0];
-	return result;
-}
-DocumentFragment.prototype.q = function() {
-	var result = DocumentFragment.prototype.querySelectorAll.apply(this, arguments);
-	if (result.length === 1) return result[0];
-	return result;
-}
-Element.prototype.q = function() {
-	var result = Element.prototype.querySelectorAll.apply(this, arguments);
+var selectorCache = new Object();
+
+// Provide a faster querySelectorAll
+Document.prototype.q =
+DocumentFragment.prototype.q =
+Element.prototype.q = function(sel) {
+	var result = null;
+	// If there is a cached version of this selector
+	var type = selectorCache[sel];
+	if (type != null) {
+		switch (type) {
+			case 0:
+				// Complex
+				result = this.querySelectorAll(sel);
+				break;
+			case 1:
+				// Class
+				result = this.getElementsByClassName(sel.substr(1));
+				break;
+			case 2:
+				// ID
+				return document.getElementById(sel.substr(1)) || [];
+				break;
+			default:
+				// Tag
+				result = this.getElementsByTagName(sel);
+				break;
+		}
+	} else {
+		// Determine if this query can be optimized
+		for (var i = sel.length; -- i; ) {
+			var n = sel.charCodeAt(i);
+			if (n !== 45 && n < 65 && (n < 48 || n > 57) && (n < 65 || n > 90) &&
+				(n < 97 || n > 122)) {
+				selectorCache[sel] = 0;
+				result = this.querySelectorAll(sel);
+				break;
+			}
+		}
+		if (result === null) {
+			switch (sel[0]) {
+				case '.':
+					// Class
+					selectorCache[sel] = 1;
+					result = this.getElementsByClassName(sel.substr(1));
+					break;
+				case '#':
+					// ID
+					selectorCache[sel] = 2;
+					return document.getElementById(sel.substr(1)) || [];
+					break;
+				default:
+					// Tag
+					selectorCache[sel] = 3;
+					result = this.getElementsByTagName(sel);
+					break;
+			}
+		}
+	}
 	if (result.length === 1) return result[0];
 	return result;
 }
