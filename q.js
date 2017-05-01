@@ -124,7 +124,7 @@ Element.prototype.q = function(sel) {
 				break;
 			case 2:
 				// ID
-				return document.getElementById(sel.substr(1)) || [];
+				return this.getElementById(sel.substr(1)) || [];
 				break;
 			default:
 				// Tag
@@ -152,7 +152,7 @@ Element.prototype.q = function(sel) {
 				case '#':
 					// ID
 					selectorCache[sel] = 2;
-					return document.getElementById(sel.substr(1)) || [];
+					return this.getElementById(sel.substr(1)) || [];
 					break;
 				default:
 					// Tag
@@ -165,8 +165,17 @@ Element.prototype.q = function(sel) {
 	if (result.length === 1) return result[0];
 	return result;
 }
+
 // Make it so that checking the length of .q will always work
 Element.prototype.length = 1;
+
+// Make it so that looping through the contents of .q will always work
+Object.defineProperty(Element.prototype, '0', {
+	set: function() {},
+	get: function() {
+		return this;
+	}
+});
 
 // Make it possible to query a list of elements
 HTMLCollection.prototype.q =
@@ -225,6 +234,37 @@ Element.prototype.scrollTo = function(x, y) {
 	}
 }
 
+// Add a getElementById method to Elements
+Element.prototype.getElementById = function(id) {
+	return document.getElementById(id);
+}
+
+/// Implement some methods that document fragments would be better off with
+DocumentFragment.prototype.getElementsByTagName = function(name) {
+	var result = new Array();
+	var upperName = name.toUpperCase();
+	for (var x = 0, y = this.children.length; x < y; ++ x) {
+		// Determine if this node fits the query
+		if (this.children[x].tagName === upperName) result.push(this.children[x]);
+		// Determine if children of this node fit the query
+		result = result.concat(Array.prototype.slice.call(
+			this.children[x].getElementsByTagName(name), 0));
+	}
+	return result;
+}
+
+DocumentFragment.prototype.getElementsByClassName = function(name) {
+	var result = new Array();
+	for (var x = 0, y = this.children.length; x < y; ++ x) {
+		// Determine if this node fits the query
+		if (this.children[x].hasClass(name)) result.push(this.children[x]);
+		// Determine if children of this node fit the query
+		result = result.concat(Array.prototype.slice.call(
+			this.children[x].getElementsByClassName(name), 0));
+	}
+	return result;
+}
+
 function EventListenerInfo(arg) {
 	this.type = arg[0];
 	this.func = arg[1];
@@ -273,7 +313,7 @@ Element.prototype.empty = function() { // Removes all children
 
 Element.prototype.remove = function() {
 	this.unbindEventListeners();
-	if (this.parentElement != null) {
+	if (this.parentElement !== null) {
 		this.parentElement.removeChild(this);
 	}
 }
