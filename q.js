@@ -135,8 +135,8 @@ Element.prototype.q = function(sel) {
 		// Determine if this query can be optimized
 		for (var i = sel.length; -- i; ) {
 			var n = sel.charCodeAt(i);
-			if (n !== 45 && n < 65 && (n < 48 || n > 57) && (n < 65 || n > 90) &&
-				(n < 97 || n > 122)) {
+			if (n !== 45 && ((n < 65 && (n < 48 || n > 57)) || (n > 90 &&
+				(n < 97 || n > 122)))) {
 				selectorCache[sel] = 0;
 				result = this.querySelectorAll(sel);
 				break;
