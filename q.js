@@ -85,13 +85,32 @@ if (document.documentElement.classList &&
 	}
 }
 
+// Prepends elements or HTML strings
+Element.prototype.prepend = function(node) {
+	// If the element is empty, just append it
+	if (this.children.length === 0) {
+		this.append(node);
+		return;
+	}
+	// Prepend the node
+	if (typeof node === 'string') { // HTML string
+		var frag = document.createElement("div");
+		frag.innerHTML = node;
+		for (var i = frag.childNodes.length; i --; ) {
+			this.insertBefore(frag.childNodes[i], this.children[0]);
+		}
+	} else { // Element(s)
+		this.insertBefore(node, this.children[0]);
+	}
+}
+
 // Append elements or HTML strings
 Element.prototype.append = function(node) {
 	if (typeof node === 'string') { // HTML string
 		var frag = document.createElement("div");
 		frag.innerHTML = node;
-		for (var x = 0, y = frag.children.length; x < y; ++ x) {
-			this.appendChild(frag.children[x]);
+		for (var i = frag.childNodes.length; i --; ) {
+			this.appendChild(frag.childNodes[0]);
 		}
 	} else { // Element(s)
 		this.appendChild(node);
@@ -193,7 +212,7 @@ NodeList.prototype.q = function() {
 	return result;
 }
 
-// Makes it easy to perform an action on one or more elements
+/// Makes it easy to perform an action on one or more elements
 Element.prototype.do = function(method) {
 	if (typeof method === 'string') { // Method
 		this[method].apply(this, Array.prototype.slice.call(arguments, 1));
@@ -206,6 +225,21 @@ NodeList.prototype.do = function(method) {
 	// Loop through elements and perform action on each one
 	for (var i = this.length; i --; ) {
 		this[i].do.apply(this[i], arguments);
+	}
+}
+
+// This is a more efficient implementation that does something similar to the
+// do method, but supports no custom arguments and passes each element as the
+// sole argument to the callback (this method also works much better with arrow
+// functions than `do` does)
+Element.prototype.each = function(callback) {
+	callback(this);
+}
+HTMLCollection.prototype.each =
+NodeList.prototype.each = function(callback) {
+	// Loop through elements and perform action on each one
+	for (var i = this.length; i --; ) {
+		this[i].each(callback);
 	}
 }
 
@@ -243,26 +277,42 @@ Element.prototype.getElementById = function(id) {
 DocumentFragment.prototype.getElementsByTagName = function(name) {
 	var result = new Array();
 	var upperName = name.toUpperCase();
-	for (var x = 0, y = this.children.length; x < y; ++ x) {
+	for (var x = 0, y = this.childNodes.length; x < y; ++ x) {
 		// Determine if this node fits the query
-		if (this.children[x].tagName === upperName) result.push(this.children[x]);
-		// Determine if children of this node fit the query
+		if (this.childNodes[x].tagName === upperName) result.push(this.childNodes[x]);
+		// Determine if childNodes of this node fit the query
 		result = result.concat(Array.prototype.slice.call(
-			this.children[x].getElementsByTagName(name), 0));
+			this.childNodes[x].getElementsByTagName(name), 0));
 	}
 	return result;
 }
 
 DocumentFragment.prototype.getElementsByClassName = function(name) {
 	var result = new Array();
-	for (var x = 0, y = this.children.length; x < y; ++ x) {
+	for (var x = 0, y = this.childNodes.length; x < y; ++ x) {
 		// Determine if this node fits the query
-		if (this.children[x].hasClass(name)) result.push(this.children[x]);
-		// Determine if children of this node fit the query
+		if (this.childNodes[x].hasClass(name)) result.push(this.childNodes[x]);
+		// Determine if childNodes of this node fit the query
 		result = result.concat(Array.prototype.slice.call(
-			this.children[x].getElementsByClassName(name), 0));
+			this.childNodes[x].getElementsByClassName(name), 0));
 	}
 	return result;
+}
+
+if (DocumentFragment.prototype.getElementById == null) {
+	DocumentFragment.prototype.getElementById = function(id) {
+		var nodes = this.childNodes;
+		for (var i = 0; i < nodes.length; ++ i) {
+			// Determine if this node fits the query
+			if (nodes[i].id === id) return nodes[i];
+			// Add this nodes' children to the queue
+			nodes = Array.prototype.concat.call(
+				Array.prototype.slice.call(nodes),
+				Array.prototype.slice.call(nodes[i].children)
+			);
+		}
+		return null;
+	}
 }
 
 function EventListenerInfo(arg) {
@@ -274,6 +324,7 @@ function EventListenerInfo(arg) {
 Element.prototype._addEventListener =
 	Element.prototype.addEventListener;
 
+Element.prototype.on =
 Element.prototype.addEventListener = function(type,
 	func, capture) {
 	// If events hasn't been initialized, initialize it
@@ -285,6 +336,7 @@ Element.prototype.addEventListener = function(type,
 	this._addEventListener(type, func, capture);
 }
 
+Element.prototype.off =
 Element.prototype.unbindEventListeners = function(type) {
 	if (!this.events) return;
 	var type = type || "";
@@ -322,3 +374,15 @@ Element.prototype.getStyle = function(name) {
 	return this.currentStyle ? this.currentStyle[name] :
      getComputedStyle(this, null)[name];
 }
+
+Element.prototype.attr = function(name, value) {
+	if (arguments.length >= 2) {
+		this.setAttribute(name, value);
+		return String(value);
+	} else {
+		return this.getAttribute(name);
+	}
+}
+
+Document.prototype.on = Document.prototype.addEventListener;
+DocumentFragment.prototype.on = DocumentFragment.prototype.addEventListener;
