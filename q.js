@@ -88,7 +88,7 @@ if (document.documentElement.classList &&
 // Prepends elements or HTML strings
 Element.prototype.prepend = function(node) {
 	// If the element is empty, just append it
-	if (this.children.length === 0) {
+	if (this.childNodes.length === 0) {
 		this.append(node);
 		return;
 	}
@@ -97,10 +97,19 @@ Element.prototype.prepend = function(node) {
 		var frag = document.createElement("div");
 		frag.innerHTML = node;
 		for (var i = frag.childNodes.length; i --; ) {
-			this.insertBefore(frag.childNodes[i], this.children[0]);
+			this.insertBefore(frag.childNodes[i], this.childNodes[0]);
 		}
-	} else { // Element(s)
-		this.insertBefore(node, this.children[0]);
+	} else if (window.$Element &&
+		node instanceof $Element) { // Blueprint $Element
+		this.insertBefore(node.element(), this.childNodes[0]);
+	} else if (node instanceof Element) { // Element(s)
+		this.insertBefore(node, this.childNodes[0]);
+	} else if (node.element) {
+		this.insertBefore(node.element, this.childNodes[0]);
+	} else {
+		console.group('Error prepending node:');
+		console.error(node);
+		console.groupEnd();
 	}
 }
 
@@ -112,8 +121,17 @@ Element.prototype.append = function(node) {
 		for (var i = frag.childNodes.length; i --; ) {
 			this.appendChild(frag.childNodes[0]);
 		}
-	} else { // Element(s)
+	} else if (window.$Element &&
+		node instanceof $Element) { // Blueprint $Element
+		this.appendChild(node.element());
+	} else if (node instanceof Element) { // Element(s)
 		this.appendChild(node);
+	} else if (node.element) {
+		this.appendChild(node.element);
+	} else {
+		console.group('Error appending node:');
+		console.error(node);
+		console.groupEnd();
 	}
 }
 
@@ -143,7 +161,7 @@ Element.prototype.q = function(sel) {
 				break;
 			case 2:
 				// ID
-				return this.getElementById(sel.substr(1)) || [];
+				return this.getElementById(sel.substr(1)) || new _q_EmptyList();
 				break;
 			default:
 				// Tag
@@ -171,7 +189,7 @@ Element.prototype.q = function(sel) {
 				case '#':
 					// ID
 					selectorCache[sel] = 2;
-					return this.getElementById(sel.substr(1)) || [];
+					return this.getElementById(sel.substr(1)) || new _q_EmptyList();
 					break;
 				default:
 					// Tag
@@ -351,20 +369,13 @@ Element.prototype.unbindEventListeners = function(type) {
 }
 
 Element.prototype.empty = function() { // Removes all children
-	while (this.firstChild) {
-		if (this.firstChild instanceof Element) {
-			// Remove child's children
-			this.firstChild.empty();
-			// Remove events
-			this.firstChild.unbindEventListeners();
-		}
+	while (this.childNodes.length !== 0) {
 		// Remove child node
-		this.removeChild(this.firstChild);
+		this.removeChild(this.childNodes[0]);
 	}
 }
 
 Element.prototype.remove = function() {
-	this.unbindEventListeners();
 	if (this.parentElement !== null) {
 		this.parentElement.removeChild(this);
 	}
@@ -384,5 +395,17 @@ Element.prototype.attr = function(name, value) {
 	}
 }
 
+window.on = window.addEventListener;
 Document.prototype.on = Document.prototype.addEventListener;
 DocumentFragment.prototype.on = DocumentFragment.prototype.addEventListener;
+
+_q_EmptyList = function() {
+
+}
+
+_q_EmptyList.prototype.length = 0;
+
+_q_EmptyList.prototype.do =
+_q_EmptyList.prototype.each = function(){};
+
+_q_EmptyList.prototype.q = function(){ return this; };
